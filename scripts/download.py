@@ -4,6 +4,7 @@ import logging
 import multiprocessing
 import os
 import subprocess
+import shutil
 
 logger = logging.getLogger("syzgen")
 
@@ -49,12 +50,53 @@ def get_def_config(source_dir, fuzzing=False):
     subprocess.run(["make", "olddefconfig"], cwd=source_dir, check=True)
 
 
-def get_config_from_url(source_dir, url, fuzzing=False):
-    config = os.path.join(source_dir, ".config")
-    with open(config, "w") as fp:
-        subprocess.run(["curl", url], stdout=fp, check=True)
+def get_config(source_dir, config_source, fuzzing=False):
+    """
+    Gets the kernel config file either from a URL or a local file path
+    and places it in source_dir/.config, then tweaks it.
+    """
+    config_target = os.path.join(source_dir, ".config")
+    print(f"Processing config source: {config_source}")
+
+    if config_source.startswith("http://") or config_source.startswith("https://"):
+        # It's a URL, use curl to download
+        print(f"Downloading config from URL: {config_source}")
+        try:
+            with open(config_target, "w") as fp:
+                # Check if -f (fail silently flag for curl) is needed)
+                subprocess.run(["curl", "-L", config_source], stdout=fp, check=True) # Added -L for better curl handling
+            print(f"Successfully downloaded config to {config_target}")
+        except subprocess.CalledProcessError as e:
+            print(f"Error downloading config from {config_source}: {e}")
+            # Optionally, clean up the potentially incomplete target file
+            if os.path.exists(config_target):
+                 os.remove(config_target)
+            raise # Re-raise the exception to stop the process
+        except Exception as e:
+            print(f"An unexpected error occurred during download: {e}")
+            if os.path.exists(config_target):
+                 os.remove(config_target)
+            raise
+    else:
+        # Assume it's a local file path
+        print(f"Copying config from local file: {config_source}")
+        if not os.path.exists(config_source):
+            raise FileNotFoundError(f"Local config file not found: {config_source}")
+        if not os.path.isfile(config_source):
+             raise IsADirectoryError(f"Local config source is not a file: {config_source}")
+
+        try:
+            shutil.copyfile(config_source, config_target)
+            print(f"Successfully copied config to {config_target}")
+        except Exception as e:
+            print(f"Error copying config file from {config_source} to {config_target}: {e}")
+            # Optionally, clean up the potentially incomplete target file
+            if os.path.exists(config_target):
+                 os.remove(config_target)
+            raise # Re-raise the exception
 
     # tweak config
+    print(f"Tweaking config file: {config_target}")
     enables = [
         # for kprobes and ftrace
         "CONFIG_FUNCTION_TRACER",
@@ -108,7 +150,7 @@ def get_config_from_url(source_dir, url, fuzzing=False):
             "CONFIG_NET_SCHED",
         ])
 
-    tweak_config(config, enables, disables)
+    tweak_config(config_target, enables, disables)
     subprocess.run(["make", "olddefconfig"], cwd=source_dir, check=True)
 
 
@@ -148,7 +190,7 @@ def download_linux(out_dir, version, build=False, config_url=""):
             subprocess.run(cmds, check=True)
 
         if config_url:
-            get_config_from_url(out, config_url, out == kernelForFuzzing)
+            get_config(out, config_url, out == kernelForFuzzing)
         else:
             get_def_config(out, out == kernelForFuzzing)
         if build:
