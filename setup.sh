@@ -85,11 +85,11 @@ esac
 
 # install golang
 GO_VERSION="1.17.7"
-GO_URL="https://dl.google.com/go/go${GO_VERSION}.${OS}-amd64.tar.gz"
+GO_URL="https://go.dev/dl/go${GO_VERSION}.${OS}-amd64.tar.gz"
 # https://golang.org/doc/install
 if [[ ! -f "go${GO_VERSION}.${OS}-amd64.tar.gz" ]]; then
-    curl -o go${GO_VERSION}.${OS}-amd64.tar.gz ${GO_URL}
-    tar -xzf go${GO_VERSION}.${OS}-amd64.tar.gz
+    wget  ${GO_URL}
+    tar -xf go${GO_VERSION}.${OS}-amd64.tar.gz
 fi
 
 echo "GOROOT=\"${GOROOT}\"" >> $VIRTUAL_ENV
@@ -101,7 +101,7 @@ echo "export PATH" >> $VIRTUAL_ENV
 
 # install python dependencies
 source ${VIRTUAL_ENV}
-pip install -r requirements.txt
+#pip install -r requirements.txt
 
 echo "installing custom cle..."
 # install custom cle to support macOS driver
