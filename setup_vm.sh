@@ -2,6 +2,8 @@
 
 set -e
 source common.sh
+sudo dnf install -y $(cat requirements_packages_vm.txt)
+
 git submodule update --init --recursive
 
 # common libraries
@@ -58,7 +60,7 @@ install_darwin_dependency () {
 }
 
 install_linux_dependency () {
-    sudo apt install clang-format flex bison libelf-dev libssl-dev
+    sudo dnf install -y clang-format flex bison elfutils-libelf-devel openssl-devel
     cd hooks/linux/client
     make getfd
     cd ../../../

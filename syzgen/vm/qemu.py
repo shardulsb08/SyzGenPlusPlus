@@ -21,7 +21,7 @@ class QEMUInstance(VMInstance):
         -kernel /home/wchen130/workplace/SyzGen_setup/linux-5.15/arch/x86/boot/bzImage \
         -append "console=ttyS0 root=/dev/sda net.ifnames=0" \
         -hda /home/wchen130/workplace/SyzGen_setup/debian/stretch.img \
-        -chardev socket,id=SOCKSYZ,server=on,nowait,host=localhost,port=51727 \
+        -chardev socket,id=SOCKSYZ,server=on,wait=off,host=localhost,port=51727 \
         -mon chardev=SOCKSYZ,mode=control \
         -device virtio-rng-pci \
         -device e1000,netdev=net0 \
@@ -89,7 +89,7 @@ class QEMUInstance(VMInstance):
             "-append", "console=ttyS0 root=/dev/sda net.ifnames=0",
             "-hda", self._image,
             "-chardev",
-            f"socket,id=SOCKSYZ,server=on,nowait,host=localhost,port={UnusedTcpPort()}",
+            f"socket,id=SOCKSYZ,server=on,wait=off,host=localhost,port={UnusedTcpPort()}",
             "-mon", "chardev=SOCKSYZ,mode=control",
             "-device", "virtio-rng-pci",
             "-device", "e1000,netdev=net0",
