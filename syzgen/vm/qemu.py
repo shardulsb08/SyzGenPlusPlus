@@ -113,13 +113,34 @@ class QEMUInstance(VMInstance):
         return "qemu"
 
     def get_ssh_cmd(self) -> List[str]:
-        return [
+        """
+        Constructs the base SSH command list using instance attributes.
+        """
+        # Basic validation (can add more checks)
+        if not self._key or not os.path.exists(self._key):
+             raise FileNotFoundError(f"SSH key file not found or path invalid: {self._key}")
+        if self._ssh_port <= 0 or self._ssh_port > 65535:
+             raise ValueError(f"Invalid SSH port configured: {self._ssh_port}")
+
+        cmd = [
             "ssh",
+            # Specify Identity File (Private Key)
             "-i", self._key,
+            # Specify Port
             "-p", str(self._ssh_port),
-            "-o", "StrictHostKeyChecking no",
-            f"{self.user}@{self._ip}"
+            # Recommended SSH Options for Automation:
+            "-o", "ConnectTimeout=10",
+            "-o", "ConnectionAttempts=3",
+            "-o", "StrictHostKeyChecking=no", # Correct syntax
+            "-o", "UserKnownHostsFile=/dev/null",
+            "-o", "BatchMode=yes",
+            "-o", "ServerAliveInterval=60",
+            "-o", "LogLevel=ERROR", # Set to INFO or DEBUG for more SSH verbosity
+            # User and Host
+            f"{self.user}@{self._ip}",
         ]
+        # logger.debug("Generated SSH command base: %s", cmd) # Uncomment for debug
+        return cmd
 
     def get_scp_cmd(self, src, dst) -> List[str]:
         return [
@@ -152,13 +173,50 @@ class QEMUInstance(VMInstance):
 
     @staticmethod
     def initialize(**kwargs):
-        return QEMUInstance(
-            # kernel_dir
-            kwargs.pop("kernel", "") or options.getConfigKey("kernel"),
-            kwargs.pop("image", "") or options.getConfigKey("image"),
-            kwargs.pop("sshkey", "") or options.getConfigKey("sshkey"),
-        )
+        # Read directly from config options loaded into the global 'options' object
+        # Use kwargs as overrides if provided
+        ip_port = kwargs.pop("ip", "") or options.getConfigKey("ip", "localhost:22") # Expect ip:port
+        user = kwargs.pop("user", "") or options.getConfigKey("user", "root")
+        key = kwargs.pop("sshkey", "") or options.getConfigKey("sshkey")
+        kernel_dir = kwargs.pop("kernel", "") or options.getConfigKey("kernel")
+        image = kwargs.pop("image", "") or options.getConfigKey("image")
 
+        ip = "localhost"
+        port = 0 # Default to 0 so run() assigns a random one for launch mode
+        if ":" in ip_port:
+            try:
+                ip, port_str = ip_port.split(":", 1)
+                # We let run() assign the port for launch mode, so we don't use parsed port here
+                # If implementing connect-only mode later, would use int(port_str)
+                logger.info(f"Parsed IP {ip} from config, port will be assigned by QEMU run.")
+            except ValueError:
+                 logger.error(f"Invalid ip:port format in config: {ip_port}")
+                 raise ValueError("Invalid ip:port format in config") from None
+        else:
+            ip = ip_port # Assume it's just IP if no port given
+            logger.info(f"Using IP {ip} from config, port will be assigned by QEMU run.")
+
+        if not key or not os.path.exists(key):
+            logger.error(f"SSH key path missing or invalid in config: {key}")
+            raise FileNotFoundError(f"SSH key ('sshkey') not found or path invalid: {key}")
+        # Add checks/warnings for kernel_dir and image if needed
+
+        # Pass potentially overridden kwargs and parsed values to __init__
+        # Note: We pass ssh_port=0 to ensure run() assigns one.
+        return QEMUInstance(
+            kernel_dir=kernel_dir,
+            image=image,
+            key=key,
+            user=user,
+            ip=ip,
+            ssh_port=0, # Force random port assignment in run() for launch mode
+            # Pass other config values if needed by __init__
+            memory=kwargs.pop("memory", "") or options.getConfigKey("memory", "2G"),
+            cpu=kwargs.pop("cpu", 0) or options.getConfigKey("cpu", 2),
+            enable_kvm=kwargs.pop("enable_kvm", None) or options.getConfigKey("enable_kvm", True),
+            name=kwargs.pop("name", "") or options.getConfigKey("name", "VM"),
+            **kwargs # Pass any remaining kwargs
+        )
     def genSyzConfig(self, num_cpu=2, num_vm=1, **kwargs) -> Dict[str, Any]:
         return {
             "sshkey": options.getConfigKey("sshkey"),
