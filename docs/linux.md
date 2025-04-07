@@ -36,6 +36,10 @@ qemu-system-x86_64 \
 	2>&1 | tee vm.log
 
 ```
+### Setup Dependencies
+```
+./setup.sh
+```
 
 ### Generate basic config
 ```
@@ -49,7 +53,8 @@ You can find the config file at the current dir and its name by default is `conf
 First, run the following command to scan the /dev folder inside a VM to get all loaded drivers and their points:
 
 ```
-python main.py --find_drivers
+# python main.py --find_drivers
+python main.py --config config --step find_driver
 ```
 
 The results would be kept in a json file at the path `workdir/Your-Project-Name/model/services.json` which contains all relevant information about drivers.
