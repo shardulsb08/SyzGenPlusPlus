@@ -106,7 +106,20 @@ class QEMUInstance(VMInstance):
             cmds.append("-enable-kvm")
 
         logger.debug("start the vm: %s", " ".join(cmds))
-        self._process = subprocess.Popen(cmds, stdout=None if options.debug else subprocess.DEVNULL)
+
+        # --- TEMPORARY CHANGE FOR DEBUGGING ---
+        # Original line might be:
+        # self._process = subprocess.Popen(cmds, stdout=None if options.debug else subprocess.DEVNULL)
+        # Change to always show output:
+        print("--- QEMU Command ---")
+        print(" ".join(cmds))
+        print("--- QEMU Output ---")
+        # self._process = subprocess.Popen(cmds, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        # You might want to read and print output in a separate thread or handle it differently
+        # For simple debugging, just letting it print might be okay, or remove redirection entirely:
+        self._process = subprocess.Popen(cmds)
+        # ---------------------------------------
+
         self._process.communicate()
 
     def get_type(self) -> str:
